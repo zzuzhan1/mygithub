@@ -1,0 +1,71 @@
+function [x,y, measure]=harris(img, thresh)
+%
+% [x,y, measure]=harris(img,  thresh)
+% measure=harris(img)
+%
+% Harris corner detector: returns a list of points that have greater
+% image derivative than 'thresh' in some direction. 'thresh' is given
+% in gray-level values (default: 20).
+%
+% 'measure' is some grading on the quality of the feature. The higher
+% the better.
+
+% Yoni Wexler, 3.00
+
+
+% Define the window size:
+wins = 5;
+if(nargin<2) thresh=20; end;
+
+% Thresh is given in gray-level values. change its value instead of
+% renormalizing the correlated values. Also, instead of divide by the
+% sum of the gradient convolution kernel, multiply by it:
+%thresh = thresh^2 * wins^2 * 12^2;
+thresh = thresh^2;
+
+Ix=conv2(img, [-1 8 0 -8 1]./12,  'same');
+Iy=conv2(img, [-1 8 0 -8 1]'./12, 'same');
+
+% Compute the partial derivative matrices for the whole image:
+
+IxIx=Ix.*Ix;
+IyIy=Iy.*Iy;
+IxIy=Ix.*Iy;
+
+clear Ix Iy
+
+% Compute the sum over the window size:
+mask = ones(wins,1)./wins;
+IxIx=conv2(mask, mask, IxIx, 'same');		IxIx=IxIx(:);
+IyIy=conv2(mask, mask, IyIy, 'same');		IyIy=IyIy(:);
+IxIy=conv2(mask, mask, IxIy, 'same');		IxIy=IxIy(:);
+clear mask;
+
+if(0)
+  [lambda,W]=eig2x2(IxIx,IxIy,IyIy);
+  %clear W IxIx IxIy IyIy;
+  %
+  % Compute only the eigen values to save time/memory:
+else
+  diff=IxIx-IyIy;
+  tmp=(IxIx+IyIy)*0.5;
+  disc= 0.5 * sqrt(diff.^2 + 4.*(IxIy.^2));
+  clear IxIx IxIy IyIy diff;
+  lambda = [ tmp+disc, tmp-disc ];
+  clear tmp disc;
+end;
+tmp=min(abs(lambda),[], 2);
+measure=sum(lambda, 2);
+clear lambda;
+
+if nargout>1
+% 1D indices of elements with smallest eigenvalue larger than thresh
+   ind=find(abs(tmp)>thresh);
+   [y,x]=ind2sub(size(img), ind); % row and column subscripts corresponding to ind
+% Values of sums of eigenvalues for places where min. eigenvalue is larger than thresh
+   measure=measure(ind); 
+
+   fprintf('Harris: Found %d points.\n', length(x));
+else
+   x=reshape(measure,size(img)); % makes a matrix out of vector measure
+end
